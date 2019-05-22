@@ -7,4 +7,4 @@ To get the features of a news, run crawl_selenium.py with the pickle files
 
 To transfer the json files into pretty formatted, type the command:
 
-`python -m json.tool > data_pretty.json < data.json`
+`$ python -m json.tool > data_pretty.json < data.json`
