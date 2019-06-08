@@ -1,0 +1,112 @@
+---
+title: "Tags_lda"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(dplyr)
+library(magrittr)
+library(ggplot2)
+library(stringr)
+library(readr)
+library(tidyr)
+#library(rvest)
+#library(httr)
+library(dplyr) 
+#library(RCurl)
+#library(jsonlite)
+library(tm)
+library(widyr)
+library(jiebaR)
+library(topicmodels)
+library(tidytext)
+library(readxl)
+options(stringsAsFactors = F)
+```
+
+
+```{r}
+nltags <- read_excel("/Users/jl8394/Documents/LC_project/newslens_tags.xlsx")
+nltags=as.data.frame(nltags)
+head(nltags)
+```
+
+```{r}
+cutter <- worker()
+segment_not <- c("新南向", "台灣人", "中國人", "共和黨", "民主黨", "我們與惡的距離", "思覺失調症")
+new_user_word(cutter, segment_not)
+
+stopWords_CN<-read_file("/Users/jl8394/Documents/LC_project/stopwords.txt")
+stopWords_CN<-strsplit(stopWords_CN,"\n")[[1]]
+stopwords_CNT <-c("報導","年","月","日","歲","人","卻","圖","中心","名","後","的","了","是","為","也","和","與","有","被","到","時","不","他","在","我","將","都","中","上","對","會","她","而","讓","自","或","但","就","台","以","已經","個","約","做","於","我們","任何","達","他們","沒有","目前","一名","可能","等","並","指出","翻","攝","說","更","要","這","及","曾","已","因為","雲","從","電視","新聞","轉載","萬","據","你","很","由","前","自己","可以","一個","再","許可","裡","不得","部分","下","供","最","圖片","網站","報刊")
+
+nltg_unnested.df <- nltags %>%
+	#mutate(content = stringr::str_replace_all(content, "台灣", "臺灣")) %>%
+	  mutate(word = purrr::map(tags, function(x)segment(x, cutter))) %>%
+    unnest(word) %>%
+	  filter(!is.na(word)) %>%
+    filter(!(word %in% stopWords_CN)) %>%
+    filter(!(word %in% stopwords_CNT)) %>%
+    filter(!str_detect(word, "[a-zA-Z0-9]+"))
+```
+
+```{r}
+doc_term_count <- nltg_unnested.df %>%
+    count(tags, word)
+doc_term_count
+```
+
+```{r}
+nltg_unnested.df%>%
+  count(word, sort = TRUE) %>%
+  head(25) %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(word, n)) +
+  geom_col() +
+  theme(text=element_text(family="STKaiti", size=12))
+  ylab("Occurrences") +
+  coord_flip()
+```
+
+```{r}
+dtm <- cast_dtm(doc_term_count, tags, word, n)
+```
+
+```{r}
+dtm_lda4 <- LDA(dtm, k = 4, control = list(seed = 2019))
+```
+
+```{r}
+#data("dtm",package="topicmodels")
+#dtm
+#Getting the Terms
+#terms<-Terms(dtm)
+#head(dtm)
+#tidyig with the tidy function
+#dtm_tidy<-tidy(dtm)
+```
+
+```{r}
+dtm_topics_4 <- tidy(dtm_lda4) 
+
+top_terms_4 <- dtm_topics_4 %>%
+	group_by(topic) %>%
+	top_n(10, beta) %>%
+	ungroup() %>%
+	arrange(topic, -beta)
+
+
+top_terms_4 %>%
+	mutate(term = reorder(term, beta)) %>%
+	ggplot(aes(term, beta, fill = factor(topic))) +
+	geom_col(show.legend = FALSE) +
+	facet_wrap(~ topic, scales = "free") +
+	coord_flip() +
+  labs(title = "newslens tags topic model")+
+	theme(axis.text.y=element_text(colour="black", family="Heiti TC Light"))
+```
+
